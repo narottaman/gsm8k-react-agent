@@ -93,12 +93,22 @@ class MockLLM(BaseLLM):
 
 class VLLMBackend(BaseLLM):
     """Qwen3-8B via vLLM on Sol A100. Loaded once, reused across episodes."""
-    def __init__(self, model_name: str = "Qwen/Qwen3-8B-Instruct",
+    def __init__(self, model_name: str = "Qwen/Qwen3-8B",
                  temperature: float = 0.7, max_tokens: int = 512):
+        import os
+        import torch._dynamo
+        # Sol /etc/python/sitecustomize.py breaks torch.compile subprocess
+        # Must disable compilation BEFORE vLLM spawns its engine subprocess
+        os.environ["VLLM_COMPILE_LEVEL"] = "0"
+        os.environ["TORCHDYNAMO_DISABLE"] = "1"
+        os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+        torch._dynamo.config.suppress_errors = True
         from vllm import LLM, SamplingParams
         logger.info("Loading vLLM model: %s", model_name)
         self.llm    = LLM(model=model_name, dtype="bfloat16",
-                          gpu_memory_utilization=0.85)
+                          gpu_memory_utilization=0.85,
+                          enforce_eager=True,
+                          compilation_config={"level": 0})
         self.params = SamplingParams(temperature=temperature, max_tokens=max_tokens,
                                      stop=["<|im_end|>"])
 
