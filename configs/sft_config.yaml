@@ -1,0 +1,17 @@
+# configs/sft_config.yaml
+
+model_name: "Qwen/Qwen3-8B"
+output_dir: "checkpoints/sft"
+max_train_samples: 500
+max_eval_samples: 100
+num_epochs: 3
+batch_size: 4
+grad_accum_steps: 4
+lr: 2.0e-5
+max_length: 1024
+warmup_ratio: 0.1
+save_steps: 100
+eval_steps: 100
+logging_steps: 10
+wandb_project: "gsm8k-react-agent"
+run_name: "sft-qwen3-8b-run01"

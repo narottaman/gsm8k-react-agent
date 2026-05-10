@@ -36,6 +36,9 @@ export WANDB_API_KEY="${WANDB_API_KEY}"
 export HF_HOME="/scratch/ngangada/hf_cache"
 export TRANSFORMERS_CACHE="/scratch/ngangada/hf_cache"
 export TOKENIZERS_PARALLELISM=false
+export VLLM_WORKER_MULTIPROC_METHOD=spawn
+export VLLM_COMPILE_LEVEL=0
+export TORCHDYNAMO_DISABLE=1
 export PYTHONPATH="/scratch/ngangada/portfolio/gsm8k-react-agent:$PYTHONPATH"
 
 cd /scratch/ngangada/portfolio/gsm8k-react-agent

@@ -1,0 +1,56 @@
+==================================================
+Phase 1: Baseline Evaluation (zero-shot)
+Job ID: 52602720 | Node: sg010
+GPU:    NVIDIA A100-SXM4-80GB, 81920 MiB
+Start:  Sun May 10 02:17:25 MST 2026
+==================================================
+2026-05-10 02:17:42,230 | INFO | Evaluating on 200 tasks (baseline — no fine-tuning)
+INFO 05-10 02:17:56 [__init__.py:239] Automatically detected platform cuda.
+INFO 05-10 02:18:25 [config.py:717] This model supports multiple tasks: {'classify', 'score', 'reward', 'generate', 'embed'}. Defaulting to 'generate'.
+INFO 05-10 02:18:25 [config.py:2003] Chunked prefill is enabled with max_num_batched_tokens=16384.
+INFO 05-10 02:18:38 [__init__.py:239] Automatically detected platform cuda.
+INFO 05-10 02:18:46 [core.py:58] Initializing a V1 LLM engine (v0.8.5) with config: model='Qwen/Qwen3-8B', speculative_config=None, tokenizer='Qwen/Qwen3-8B', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, override_neuron_config=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=40960, download_dir=None, load_format=LoadFormat.AUTO, tensor_parallel_size=1, pipeline_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto,  device_config=cuda, decoding_config=DecodingConfig(guided_decoding_backend='auto', reasoning_backend=None), observability_config=ObservabilityConfig(show_hidden_metrics=False, otlp_traces_endpoint=None, collect_model_forward_time=False, collect_model_execute_time=False), seed=None, served_model_name=Qwen/Qwen3-8B, num_scheduler_steps=1, multi_step_stream_outputs=True, enable_prefix_caching=True, chunked_prefill_enabled=True, use_async_output_proc=True, disable_mm_preprocessor_cache=False, mm_processor_kwargs=None, pooler_config=None, compilation_config={"level":3,"custom_ops":["none"],"splitting_ops":["vllm.unified_attention","vllm.unified_attention_with_output"],"use_inductor":true,"compile_sizes":[],"use_cudagraph":true,"cudagraph_num_of_warmups":1,"cudagraph_capture_sizes":[512,504,496,488,480,472,464,456,448,440,432,424,416,408,400,392,384,376,368,360,352,344,336,328,320,312,304,296,288,280,272,264,256,248,240,232,224,216,208,200,192,184,176,168,160,152,144,136,128,120,112,104,96,88,80,72,64,56,48,40,32,24,16,8,4,2,1],"max_capture_size":512}
+WARNING 05-10 02:18:47 [utils.py:2522] Methods determine_num_available_blocks,device_config,get_cache_block_size_bytes,initialize_cache not implemented in <vllm.v1.worker.gpu_worker.Worker object at 0x1553d78003e0>
+INFO 05-10 02:18:47 [parallel_state.py:1004] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, TP rank 0
+INFO 05-10 02:18:47 [cuda.py:221] Using Flash Attention backend on V1 engine.
+WARNING 05-10 02:18:47 [topk_topp_sampler.py:69] FlashInfer is not available. Falling back to the PyTorch-native implementation of top-p & top-k sampling. For the best performance, please install FlashInfer.
+INFO 05-10 02:18:47 [gpu_model_runner.py:1329] Starting to load model Qwen/Qwen3-8B...
+INFO 05-10 02:18:51 [weight_utils.py:265] Using model weights format ['*.safetensors']
+INFO 05-10 02:19:10 [loader.py:458] Loading weights took 19.30 seconds
+INFO 05-10 02:19:10 [gpu_model_runner.py:1347] Model loading took 15.2683 GiB and 22.592134 seconds
+INFO 05-10 02:19:15 [kv_cache_utils.py:634] GPU KV cache size: 361,504 tokens
+INFO 05-10 02:19:15 [kv_cache_utils.py:637] Maximum concurrency for 40,960 tokens per request: 8.83x
+INFO 05-10 02:19:20 [gpu_model_runner.py:1686] Graph capturing finished in 5 secs, took 0.13 GiB
+INFO 05-10 02:19:20 [core.py:159] init engine (profile, create kv cache, warmup model) took 10.04 seconds
+INFO 05-10 02:19:20 [core_client.py:439] Core engine process 0 ready.
+2026-05-10 02:22:07,527 | INFO | [10/200] running success=1.000
+2026-05-10 02:24:56,729 | INFO | [20/200] running success=1.000
+2026-05-10 02:27:26,680 | INFO | [30/200] running success=1.000
+2026-05-10 02:30:14,631 | INFO | [40/200] running success=1.000
+2026-05-10 02:32:57,380 | INFO | [50/200] running success=1.000
+2026-05-10 02:35:35,763 | INFO | [60/200] running success=1.000
+2026-05-10 02:38:06,422 | INFO | [70/200] running success=1.000
+2026-05-10 02:40:57,053 | INFO | [80/200] running success=1.000
+2026-05-10 02:43:24,915 | INFO | [90/200] running success=1.000
+2026-05-10 02:46:01,870 | INFO | [100/200] running success=1.000
+2026-05-10 02:48:39,419 | INFO | [110/200] running success=1.000
+2026-05-10 02:50:57,262 | INFO | [120/200] running success=1.000
+2026-05-10 02:53:35,622 | INFO | [130/200] running success=1.000
+2026-05-10 02:56:05,683 | INFO | [140/200] running success=1.000
+2026-05-10 02:58:20,666 | INFO | [150/200] running success=1.000
+2026-05-10 03:00:54,200 | INFO | [160/200] running success=1.000
+2026-05-10 03:03:32,313 | INFO | [170/200] running success=1.000
+2026-05-10 03:06:02,861 | INFO | [180/200] running success=1.000
+2026-05-10 03:08:42,942 | INFO | [190/200] running success=1.000
+2026-05-10 03:11:08,614 | INFO | [200/200] running success=1.000
+2026-05-10 03:11:08,632 | INFO | === BASELINE RESULTS ===
+2026-05-10 03:11:08,633 | INFO |   n: 200
+2026-05-10 03:11:08,633 | INFO |   success_rate: 1.0000
+2026-05-10 03:11:08,634 | INFO |   mean_reward: 0.6625
+2026-05-10 03:11:08,634 | INFO |   mean_steps: 1.0000
+2026-05-10 03:11:08,635 | INFO |   phase: baseline
+2026-05-10 03:11:09,732 | INFO | Saved → data/results/baseline.json
+==================================================
+Baseline eval complete. Check data/results/baseline.json
+End: Sun May 10 03:11:14 MST 2026
+==================================================

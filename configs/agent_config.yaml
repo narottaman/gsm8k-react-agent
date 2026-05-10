@@ -1,27 +1,15 @@
 # configs/agent_config.yaml
-# Agent behavior settings shared across all phases
 
-# Model
-model_name: "Qwen/Qwen3-8B-Instruct"
-
-# Agent loop
+model_name: "Qwen/Qwen3-8B"
 max_steps: 8
 temperature: 0.7
 max_tokens: 512
-
-# Tools enabled
 tools:
   - code_executor
   - calculator
-
-# Code executor sandbox
 code_executor_timeout: 10
-
-# Reward weights
 reward_weights:
   answer_correct: 0.5
   tool_efficiency: 0.3
   format_valid: 0.2
-
-# Max tool calls before efficiency penalty kicks in
 max_tool_calls: 6

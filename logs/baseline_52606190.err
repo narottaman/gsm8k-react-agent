@@ -1,0 +1,23 @@
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/ngangada/.netrc.
+wandb: Currently logged in as: ngangada (ngangada-arizona-state-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run 0yz4tr6e
+wandb: Tracking run with wandb version 0.26.1
+wandb: Run data is saved locally in /scratch/ngangada/portfolio/gsm8k-react-agent/wandb/run-20260510_032817-0yz4tr6e
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run eval-baseline
+wandb: ⭐️ View project at https://wandb.ai/ngangada-arizona-state-university/gsm8k-react-agent
+wandb: 🚀 View run at https://wandb.ai/ngangada-arizona-state-university/gsm8k-react-agent/runs/0yz4tr6e
+/home/ngangada/envs/gsm8k_agent/lib/python3.12/site-packages/transformers/utils/hub.py:105: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+/home/ngangada/envs/gsm8k_agent/lib/python3.12/site-packages/transformers/utils/hub.py:105: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+Loading safetensors checkpoint shards:   0% Completed | 0/5 [00:00<?, ?it/s]
+Loading safetensors checkpoint shards:  20% Completed | 1/5 [00:05<00:21,  5.42s/it]
+Loading safetensors checkpoint shards:  40% Completed | 2/5 [00:10<00:15,  5.00s/it]
+Loading safetensors checkpoint shards:  60% Completed | 3/5 [00:12<00:07,  3.70s/it]
+Loading safetensors checkpoint shards:  80% Completed | 4/5 [00:18<00:04,  4.60s/it]
+Loading safetensors checkpoint shards: 100% Completed | 5/5 [00:24<00:00,  5.14s/it]
+Loading safetensors checkpoint shards: 100% Completed | 5/5 [00:24<00:00,  4.87s/it]
+
+Processed prompts:   0%|          | 0/1 [00:00<?, ?it/s, est. speed input: 0.00 toks/s, output: 0.00 toks/s]Processed prompts: 100%|██████████| 1/1 [00:16<00:00, 16.36s/it, est. speed input: 25.25 toks/s, output: 25.56 toks/s]Processed prompts: 100%|██████████| 1/1 [00:16<00:00, 16.36s/it, est. speed input: 25.25 toks/s, output: 25.56 toks/s]
+Processed prompts:   0%|          | 0/1 [00:00<?, ?it/s, est. speed input: 0.00 toks/s, output: 0.00 toks/s]

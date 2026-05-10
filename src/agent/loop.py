@@ -1,28 +1,16 @@
 """
-src/agent/loop.py
------------------
-ReAct loop for GSM8K math agent.
+src/agent/loop.py — ReAct loop for GSM8K agent.
 Think → Act → Observe → repeat → FinalAnswer
-
-Each run returns AgentTrajectory used by GRPO trainer.
-No APIs. Open models only (Qwen3-8B via vLLM).
+No APIs. Open models only (Qwen3-8B via vLLM on Sol).
 """
-
 from __future__ import annotations
-
-import json
-import logging
-import time
+import json, logging, time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Enums + Dataclasses
-# ---------------------------------------------------------------------------
 
 class ActionType(str, Enum):
     TOOL_CALL    = "tool_call"
@@ -61,7 +49,7 @@ class AgentStep:
 
 @dataclass
 class AgentTrajectory:
-    """One full episode. GRPO trains on these."""
+    """One full episode. GRPO trains on a batch of these."""
     task_id:          str
     query:            str
     steps:            list[AgentStep] = field(default_factory=list)
@@ -69,13 +57,14 @@ class AgentTrajectory:
     ground_truth:     Optional[str]   = None
     reward:           Optional[float] = None
     reward_breakdown: dict            = field(default_factory=dict)
-    success:          bool            = False
+    answered:         bool            = False  # agent produced final_answer
+    success:          bool            = False  # answer was correct
     total_steps:      int             = 0
     total_time_ms:    float           = 0.0
 
 
 # ---------------------------------------------------------------------------
-# LLM Backend
+# LLM Backends
 # ---------------------------------------------------------------------------
 
 class BaseLLM:
@@ -84,18 +73,14 @@ class BaseLLM:
 
 
 class MockLLM(BaseLLM):
-    """For tests — no GPU needed."""
+    """Deterministic mock — no GPU needed, used in tests."""
     def __init__(self, responses: Optional[list[str]] = None):
         self._responses = responses or [
-            json.dumps({
-                "thought": "I should execute this as code to be precise.",
-                "action": {"type": "tool_call", "tool_name": "code_executor",
-                           "tool_args": {"code": "print(2 + 2)"}}
-            }),
-            json.dumps({
-                "thought": "The code returned 4. That is the answer.",
-                "action": {"type": "final_answer", "content": "4"}
-            }),
+            json.dumps({"thought": "I'll compute this precisely with code.",
+                        "action": {"type": "tool_call", "tool_name": "code_executor",
+                                   "tool_args": {"code": "print(2 + 2)"}}}),
+            json.dumps({"thought": "Output was 4. That is the answer.",
+                        "action": {"type": "final_answer", "content": "4"}}),
         ]
         self._idx = 0
 
@@ -106,31 +91,26 @@ class MockLLM(BaseLLM):
 
 
 class VLLMBackend(BaseLLM):
-    """
-    Real backend — Qwen3-8B via vLLM on Sol A100.
-    Loaded once in train.py, passed in here.
-    """
+    """Qwen3-8B via vLLM on Sol A100. Loaded once, reused across episodes."""
     def __init__(self, model_name: str = "Qwen/Qwen3-8B-Instruct",
                  temperature: float = 0.7, max_tokens: int = 512):
         from vllm import LLM, SamplingParams
-        self.llm    = LLM(model=model_name, dtype="bfloat16")
-        self.params = SamplingParams(temperature=temperature, max_tokens=max_tokens)
+        logger.info("Loading vLLM model: %s", model_name)
+        self.llm    = LLM(model=model_name, dtype="bfloat16",
+                          gpu_memory_utilization=0.85)
+        self.params = SamplingParams(temperature=temperature, max_tokens=max_tokens,
+                                     stop=["<|im_end|>"])
 
     def generate(self, messages: list[dict]) -> str:
-        prompt  = self._apply_chat_template(messages)
+        prompt  = self._chat_template(messages)
         outputs = self.llm.generate([prompt], self.params)
         return outputs[0].outputs[0].text.strip()
 
-    def _apply_chat_template(self, messages: list[dict]) -> str:
+    def _chat_template(self, messages: list[dict]) -> str:
         parts = []
         for m in messages:
             role, content = m["role"], m["content"]
-            if role == "system":
-                parts.append(f"<|im_start|>system\n{content}<|im_end|>")
-            elif role == "user":
-                parts.append(f"<|im_start|>user\n{content}<|im_end|>")
-            elif role == "assistant":
-                parts.append(f"<|im_start|>assistant\n{content}<|im_end|>")
+            parts.append(f"<|im_start|>{role}\n{content}<|im_end|>")
         parts.append("<|im_start|>assistant\n")
         return "\n".join(parts)
 
@@ -142,10 +122,8 @@ class VLLMBackend(BaseLLM):
 class BaseTool:
     name: str        = "base"
     description: str = ""
-
     def run(self, **kwargs) -> str:
         raise NotImplementedError
-
     def schema(self) -> dict:
         return {"name": self.name, "description": self.description}
 
@@ -169,7 +147,7 @@ class ToolRegistry:
 
 
 # ---------------------------------------------------------------------------
-# Parser
+# Parser + Context Builder
 # ---------------------------------------------------------------------------
 
 def parse_llm_response(raw: str) -> tuple[str, Action]:
@@ -189,30 +167,27 @@ def parse_llm_response(raw: str) -> tuple[str, Action]:
         else:
             return thought, Action.error(f"Unknown type: {atype}")
     except json.JSONDecodeError:
-        return "Parse failed.", Action.final_answer(raw)
+        # Fallback: treat raw output as final answer
+        return "Direct output.", Action.final_answer(raw)
 
 
-# ---------------------------------------------------------------------------
-# Context Builder
-# ---------------------------------------------------------------------------
+SYSTEM_PROMPT = """You are a math reasoning agent. You MUST use tools to solve every problem.
 
-SYSTEM_PROMPT = """You are a math reasoning agent. Solve problems step by step.
-Always respond with valid JSON only:
+STRICT RULES:
+1. ALWAYS use code_executor or calculator before giving a final answer
+2. NEVER guess or compute mentally — always verify with a tool
+3. Respond ONLY with valid JSON — no extra text, no markdown
 
-For tool use:
-{"thought": "...", "action": {"type": "tool_call", "tool_name": "code_executor", "tool_args": {"code": "print(...)"}}}
+Tool call format:
+{"thought": "I need to compute X", "action": {"type": "tool_call", "tool_name": "code_executor", "tool_args": {"code": "print(...)"}}}
 
-For final answer:
-{"thought": "...", "action": {"type": "final_answer", "content": "42"}}
+After seeing tool result, give final answer:
+{"thought": "The result is X", "action": {"type": "final_answer", "content": "42"}}
 
 Available tools:
 TOOLS_PLACEHOLDER
 
-Rules:
-- Use code_executor for arithmetic or multi-step math
-- Use calculator for simple single operations  
-- Final answer must be the numeric value only
-- Never guess — always compute
+IMPORTANT: You must call a tool on your FIRST response. Never answer directly without computing.
 """
 
 def build_messages(query: str, steps: list[AgentStep], tools: list[dict]) -> list[dict]:
@@ -226,12 +201,8 @@ def build_messages(query: str, steps: list[AgentStep], tools: list[dict]) -> lis
             "role": "assistant",
             "content": json.dumps({
                 "thought": step.thought,
-                "action": {
-                    "type":      step.action.type,
-                    "tool_name": step.action.tool_name,
-                    "tool_args": step.action.tool_args,
-                    "content":   step.action.content,
-                }
+                "action": {"type": step.action.type, "tool_name": step.action.tool_name,
+                           "tool_args": step.action.tool_args, "content": step.action.content}
             })
         })
         if step.observation is not None:
@@ -254,21 +225,24 @@ class ReActAgent:
         start = time.time()
 
         for step_idx in range(self.max_steps):
-            t0               = time.time()
-            messages         = build_messages(query, traj.steps, self.tools.schemas())
-            raw              = self.llm.generate(messages)
-            thought, action  = parse_llm_response(raw)
+            t0              = time.time()
+            messages        = build_messages(query, traj.steps, self.tools.schemas())
+            raw             = self.llm.generate(messages)
+            thought, action = parse_llm_response(raw)
+            latency         = (time.time() - t0) * 1000
 
             if action.type == ActionType.FINAL_ANSWER:
-                traj.steps.append(AgentStep(step_idx, thought, action, latency_ms=(time.time()-t0)*1000))
+                traj.steps.append(AgentStep(step_idx, thought, action, latency_ms=latency))
                 traj.final_answer = action.content
-                traj.success      = True
+                traj.answered     = True   # agent produced an answer
+                traj.success      = False  # set to True by reward.py if correct
                 break
             elif action.type == ActionType.TOOL_CALL:
                 obs = self.tools.execute(action)
-                traj.steps.append(AgentStep(step_idx, thought, action, obs, latency_ms=(time.time()-t0)*1000))
+                traj.steps.append(AgentStep(step_idx, thought, action, obs, latency_ms=latency))
             else:
-                traj.steps.append(AgentStep(step_idx, thought, action, f"[error] {action.content}", latency_ms=(time.time()-t0)*1000))
+                traj.steps.append(AgentStep(step_idx, thought, action,
+                                            f"[error] {action.content}", latency_ms=latency))
                 break
         else:
             traj.final_answer = "[max steps]"

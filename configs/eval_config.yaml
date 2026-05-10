@@ -1,0 +1,11 @@
+# configs/eval_config.yaml
+
+model_name: "Qwen/Qwen3-8B"
+sft_checkpoint: "checkpoints/sft"
+rl_checkpoint: "checkpoints/rl/final"
+max_eval_samples: 200
+max_steps: 8
+temperature: 0.0
+max_tokens: 512
+results_dir: "data/results"
+wandb_project: "gsm8k-react-agent"
