@@ -4,6 +4,7 @@ Think → Act → Observe → repeat → FinalAnswer
 No APIs. Open models only (Qwen3-8B via vLLM on Sol).
 """
 from __future__ import annotations
+import re
 import json, logging, time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -150,13 +151,39 @@ class ToolRegistry:
 # Parser + Context Builder
 # ---------------------------------------------------------------------------
 
+def _extract_number(text: str) -> str:
+    """Extract last number from plain text. '42 dollars' -> '42'."""
+    nums = re.findall(r"-?\d+(?:,\d{3})*(?:\.\d+)?", text)
+    if nums:
+        return nums[-1].replace(",", "")
+    return text.strip()
+
+
 def parse_llm_response(raw: str) -> tuple[str, Action]:
+    """
+    Robust parser handling:
+      1. Qwen3 <think>...</think> prefix (thinking mode)
+      2. markdown code fences
+      3. JSON object anywhere in text
+      4. Plain text fallback with number extraction
+    """
     raw = raw.strip()
+
+    # Step 1: Strip Qwen3 <think>...</think> block
+    raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+
+    # Step 2: Strip markdown code fences
     if raw.startswith("```"):
         lines = raw.split("\n")
-        raw = "\n".join(lines[1:-1])
+        raw = "\n".join(lines[1:-1]).strip()
+
+    # Step 3: Extract first complete JSON object
+    brace_match = re.search(r"\{.*\}", raw, re.DOTALL)
+    json_str = brace_match.group(0) if brace_match else raw
+
+    # Step 4: Try JSON parse
     try:
-        parsed  = json.loads(raw)
+        parsed  = json.loads(json_str)
         thought = parsed.get("thought", "")
         act     = parsed.get("action", {})
         atype   = act.get("type", "error")
@@ -166,9 +193,13 @@ def parse_llm_response(raw: str) -> tuple[str, Action]:
             return thought, Action.final_answer(act.get("content", ""))
         else:
             return thought, Action.error(f"Unknown type: {atype}")
-    except json.JSONDecodeError:
-        # Fallback: treat raw output as final answer
-        return "Direct output.", Action.final_answer(raw)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Step 5: Fallback - extract last number from raw text
+    number = _extract_number(raw)
+    logger.debug("Parser fallback: extracted %r from: %s", number, raw[:100])
+    return "Extracted from text.", Action.final_answer(number)
 
 
 SYSTEM_PROMPT = """You are a math reasoning agent. You MUST use tools to solve every problem.

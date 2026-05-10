@@ -24,3 +24,35 @@ INFO 05-10 03:30:05 [kv_cache_utils.py:637] Maximum concurrency for 40,960 token
 INFO 05-10 03:30:10 [gpu_model_runner.py:1686] Graph capturing finished in 5 secs, took 0.13 GiB
 INFO 05-10 03:30:10 [core.py:159] init engine (profile, create kv cache, warmup model) took 9.63 seconds
 INFO 05-10 03:30:10 [core_client.py:439] Core engine process 0 ready.
+2026-05-10 03:33:16,550 | INFO | [10/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 03:36:03,428 | INFO | [20/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 03:38:50,593 | INFO | [30/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 03:41:45,284 | INFO | [40/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 03:44:29,406 | INFO | [50/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 03:47:14,081 | INFO | [60/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 03:49:47,786 | INFO | [70/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 03:52:19,210 | INFO | [80/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 03:54:58,616 | INFO | [90/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 03:57:37,933 | INFO | [100/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:00:28,497 | INFO | [110/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:03:19,977 | INFO | [120/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:06:03,657 | INFO | [130/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:08:42,537 | INFO | [140/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:11:44,004 | INFO | [150/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:14:30,855 | INFO | [160/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:17:18,524 | INFO | [170/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:19:55,605 | INFO | [180/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:22:51,988 | INFO | [190/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:25:38,893 | INFO | [200/200] accuracy=0.000 | tool_use=0.0%
+2026-05-10 04:25:38,903 | INFO | === BASELINE RESULTS ===
+2026-05-10 04:25:38,904 | INFO |   accuracy (correct answers): 0.0%
+2026-05-10 04:25:38,905 | INFO |   answered_rate:              100.0%
+2026-05-10 04:25:38,905 | INFO |   mean_reward:                0.4863
+2026-05-10 04:25:38,906 | INFO |   tool_use_rate:              0.0%
+2026-05-10 04:25:38,906 | INFO |   mean_steps:                 1.00
+2026-05-10 04:25:38,907 | INFO |   mean_tool_calls:            0.00
+2026-05-10 04:25:39,731 | INFO | Saved → data/results/baseline.json
+==================================================
+Baseline eval complete. Check data/results/baseline.json
+End: Sun May 10 04:25:44 MST 2026
+==================================================
