@@ -1,0 +1,20 @@
+# configs/sft_full_config.yaml — Full SFT (all weights updated)
+
+model_name: "Qwen/Qwen3-8B"
+output_dir: "checkpoints/sft_full"
+
+# Data
+max_train_samples: 500
+max_length: 512
+
+# Training — batch=1 forced in script, grad_accum=16
+num_epochs: 3
+lr: 2.0e-5           # lower than LoRA
+warmup_ratio: 0.1
+save_steps: 100
+eval_steps: 100
+logging_steps: 10
+
+# W&B
+wandb_project: "gsm8k-react-agent"
+run_name: "sft-full-qwen3-8b"

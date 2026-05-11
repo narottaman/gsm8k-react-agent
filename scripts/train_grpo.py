@@ -200,7 +200,7 @@ def main():
     logger.info("Starting GRPO: %d iterations, batch=%d", n_iter, batch_size)
 
     for iteration in range(n_iter):
-        # ── ROLLOUT ────────────────────────────────────────────────────
+        # ── ROLLOUT (vLLM) ─────────────────────────────────────────────
         batch  = random.sample(train_tasks, min(batch_size, len(train_tasks)))
         trajs  = rollout(agent, batch)
         buffer.clear()
@@ -215,12 +215,19 @@ def main():
 
         # ── GRPO UPDATE ────────────────────────────────────────────────
         if not args.mock and trajs:
+            # Free vLLM GPU memory before gradient update
+            import gc
+            del agent.llm.llm
+            gc.collect()
+            torch.cuda.empty_cache()
+            logger.info("[iter %02d] vLLM freed, running GRPO update", iteration)
+
             texts   = [trajectory_to_text(t) for t in trajs]
             rewards = torch.tensor([t.reward or 0.0 for t in trajs], dtype=torch.float32)
 
             encoded = tokenizer(texts, return_tensors="pt", padding=True,
                                 truncation=True, max_length=max_length)
-            device  = next(policy.parameters()).device
+            device  = next(p for p in policy.parameters() if p.requires_grad).device
             ids     = encoded["input_ids"].to(device)
             mask    = encoded["attention_mask"].to(device)
             rewards = rewards.to(device)
@@ -231,12 +238,26 @@ def main():
                                clip_ratio=cfg.get("clip_ratio", 0.2),
                                kl_coeff=cfg.get("kl_coeff", 0.01))
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(
+                [p for p in policy.parameters() if p.requires_grad], 1.0)
             optimizer.step()
 
             logger.info("[iter %02d] grpo loss=%.4f", iteration, loss.item())
             wandb.log({"train/loss": loss.item(), "train/mean_reward": rewards.mean().item()},
                       step=iteration)
+
+            # Reload vLLM for next rollout (except last iteration)
+            if iteration < n_iter - 1:
+                del out
+                torch.cuda.empty_cache()
+                gc.collect()
+                rollout_llm = VLLMBackend(
+                    model_name=start_model,
+                    temperature=cfg.get("temperature", 0.7),
+                    max_tokens=cfg.get("max_tokens", 512))
+                agent = ReActAgent(llm=rollout_llm, tools=tools,
+                                   max_steps=cfg.get("max_steps", 8))
+                logger.info("[iter %02d] vLLM reloaded for next rollout", iteration)
 
         # ── EVAL ───────────────────────────────────────────────────────
         if iteration % eval_every == 0:
