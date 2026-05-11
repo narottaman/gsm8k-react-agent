@@ -3,7 +3,7 @@
 #SBATCH --job-name=gsm8k-grpo
 #SBATCH --output=/scratch/ngangada/portfolio/gsm8k-react-agent/logs/grpo_%j.out
 #SBATCH --error=/scratch/ngangada/portfolio/gsm8k-react-agent/logs/grpo_%j.err
-#SBATCH -t 0-12:00:00
+#SBATCH -t 0-03:00:00
 #SBATCH -p public
 #SBATCH -q public
 #SBATCH -N 1
@@ -33,9 +33,13 @@ echo "=================================================="
 source ~/envs/gsm8k_agent/bin/activate
 
 export WANDB_API_KEY="${WANDB_API_KEY}"
+export HF_TOKEN="${HF_TOKEN}"
+export HF_TOKEN="${HF_TOKEN}"
+export HUGGING_FACE_HUB_TOKEN="${HF_TOKEN}"
 export HF_HOME="/scratch/ngangada/hf_cache"
 export TRANSFORMERS_CACHE="/scratch/ngangada/hf_cache"
 export TOKENIZERS_PARALLELISM=false
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
 export VLLM_COMPILE_LEVEL=0
 export TORCHDYNAMO_DISABLE=1

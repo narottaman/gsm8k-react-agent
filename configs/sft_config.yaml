@@ -2,16 +2,26 @@
 
 model_name: "Qwen/Qwen3-8B"
 output_dir: "checkpoints/sft"
+
+# Data
 max_train_samples: 500
-max_eval_samples: 100
+max_length: 512       # shorter = faster, enough for GSM8K format
+
+# LoRA — keeps memory ~20GB total on A100 80GB
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+
+# Training
 num_epochs: 3
 batch_size: 4
-grad_accum_steps: 4
-lr: 2.0e-5
-max_length: 1024
+grad_accum_steps: 4   # effective batch = 16
+lr: 2.0e-4            # higher LR works better for LoRA
 warmup_ratio: 0.1
 save_steps: 100
 eval_steps: 100
 logging_steps: 10
+
+# W&B
 wandb_project: "gsm8k-react-agent"
-run_name: "sft-qwen3-8b-run01"
+run_name: "sft-lora-qwen3-8b"

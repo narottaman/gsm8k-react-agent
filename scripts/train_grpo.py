@@ -147,17 +147,45 @@ def main():
     tools = build_tool_registry()
     agent = ReActAgent(llm=rollout_llm, tools=tools, max_steps=cfg.get("max_steps", 8))
 
-    # Separate model for gradient updates (HuggingFace)
+    # Separate model for gradient updates — 4-bit to save memory
+    # vLLM already holds ~16GB, so policy model must be quantized
     if not args.mock:
-        logger.info("Loading policy model for GRPO updates...")
+        logger.info("Loading policy model (4-bit) for GRPO updates...")
+        from transformers import BitsAndBytesConfig
+        from peft import LoraConfig, get_peft_model, TaskType
+
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+        )
+
         tokenizer = AutoTokenizer.from_pretrained(start_model)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
         policy = AutoModelForCausalLM.from_pretrained(
-            start_model, torch_dtype=torch.bfloat16, device_map="auto")
+            start_model,
+            quantization_config=bnb_config,
+            device_map="auto",
+        )
+
+        # LoRA adapter on top of 4-bit base for gradient updates
+        lora_cfg = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            r=16, lora_alpha=32, lora_dropout=0.05,
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+            bias="none",
+        )
+        policy = get_peft_model(policy, lora_cfg)
+        policy.enable_input_require_grads()
         policy.train()
-        optimizer = AdamW(policy.parameters(), lr=cfg.get("lr", 1e-5))
+        policy.print_trainable_parameters()
+        optimizer = AdamW(
+            [p for p in policy.parameters() if p.requires_grad],
+            lr=cfg.get("lr", 1e-5)
+        )
 
     buffer       = TrajectoryBuffer("data/trajectories/grpo_buffer.jsonl")
     n_iter       = cfg.get("n_iterations", 20)
@@ -222,6 +250,7 @@ def main():
         # ── SAVE ───────────────────────────────────────────────────────
         if not args.mock and iteration % save_every == 0 and iteration > 0:
             ckpt = rl_dir / f"iter_{iteration:03d}"
+            # Save LoRA adapter only (small, ~100MB)
             policy.save_pretrained(ckpt)
             tokenizer.save_pretrained(ckpt)
             buffer.save()
@@ -232,7 +261,8 @@ def main():
         final = rl_dir / "final"
         policy.save_pretrained(final)
         tokenizer.save_pretrained(final)
-        logger.info("Final model saved → %s", final)
+        logger.info("Final RL adapter saved → %s", final)
+        logger.info("To use: load base model + merge this adapter")
 
     wandb.finish()
     logger.info("GRPO training complete.")

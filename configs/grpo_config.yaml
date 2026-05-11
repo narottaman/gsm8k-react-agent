@@ -23,7 +23,7 @@ max_eval_samples: 100
 
 # Checkpointing
 output_dir: "checkpoints"
-sft_checkpoint: "checkpoints/sft"
+sft_checkpoint: "checkpoints/sft_full"
 rl_checkpoint: "checkpoints/rl/final"
 save_every: 5
 eval_every: 5
