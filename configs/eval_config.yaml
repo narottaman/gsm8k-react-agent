@@ -1,8 +1,15 @@
 # configs/eval_config.yaml
 
 model_name: "Qwen/Qwen3-8B"
-sft_checkpoint: "checkpoints/sft"
-rl_checkpoint: "checkpoints/rl/final"
+
+# Checkpoints to compare
+# LoRA checkpoints (adapter only) → auto-merged before eval
+# Full checkpoints (complete model) → loaded directly by vLLM
+sft_checkpoint:    "checkpoints/sft"          # LoRA adapter → will be merged
+sft_full_checkpoint: "checkpoints/sft_full"   # Full model → direct load
+rl_checkpoint:     "checkpoints/rl/final"     # LoRA adapter → will be merged
+rl_full_checkpoint: "checkpoints/rl_full/final" # Full model → direct load
+
 max_eval_samples: 200
 max_steps: 8
 temperature: 0.0

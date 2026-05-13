@@ -38,9 +38,49 @@ def load_tasks(path: str, max_samples: int = None) -> list[dict]:
     return tasks
 
 
+def is_lora_checkpoint(path: str) -> bool:
+    """Check if a path is a LoRA adapter (has adapter_config.json but no config.json)."""
+    from pathlib import Path as P
+    p = P(path)
+    return (p / "adapter_config.json").exists() and not (p / "config.json").exists()
+
+
+def merge_lora_for_inference(adapter_path: str, base_model: str, merged_path: str) -> str:
+    """Merge LoRA adapter into base model weights for vLLM inference."""
+    from pathlib import Path as P
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import PeftModel
+
+    merged = P(merged_path)
+    if (merged / "config.json").exists():
+        logger.info("Merged model already exists at %s", merged_path)
+        return merged_path
+
+    logger.info("Merging LoRA adapter %s + base %s → %s", adapter_path, base_model, merged_path)
+    merged.mkdir(parents=True, exist_ok=True)
+
+    tokenizer = AutoTokenizer.from_pretrained(base_model)
+    model = AutoModelForCausalLM.from_pretrained(base_model, torch_dtype=torch.bfloat16, device_map="auto")
+    model = PeftModel.from_pretrained(model, adapter_path)
+    model = model.merge_and_unload()   # fuses adapter into base weights
+
+    model.save_pretrained(merged_path)
+    tokenizer.save_pretrained(merged_path)
+    logger.info("Merge complete → %s", merged_path)
+    return merged_path
+
+
 def eval_model(model_name: str, tasks: list[dict], cfg: dict,
                mock: bool = False, label: str = "model") -> dict:
     logger.info("Evaluating: %s (%s)", label, model_name)
+
+    # LoRA checkpoints need merging before vLLM can load them
+    if not mock and is_lora_checkpoint(model_name):
+        base_model  = cfg.get("model_name", "Qwen/Qwen3-8B")
+        merged_path = model_name.rstrip("/") + "_merged"
+        model_name  = merge_lora_for_inference(model_name, base_model, merged_path)
+
     llm   = MockLLM() if mock else VLLMBackend(
                 model_name=model_name,
                 temperature=cfg.get("temperature", 0.0),
@@ -77,14 +117,20 @@ def eval_model(model_name: str, tasks: list[dict], cfg: dict,
 
 
 def print_table(comparisons: list[dict]) -> None:
-    print("\n" + "="*70)
-    print(f"{'Phase':<15} {'Model':<30} {'Success':>8} {'Reward':>8} {'Steps':>7}")
+    print("\\n" + "="*70)
+    print(f"{'Phase':<15} {'Model':<30} {'Accuracy':>9} {'Reward':>8} {'Steps':>7}")
     print("-"*70)
-    for c in comparisons:
-        s = c["summary"]
-        print(f"{s['label']:<15} {s['model']:<30} "
-              f"{s['success_rate']:>7.1%} {s['mean_reward']:>8.3f} {s['mean_steps']:>7.1f}")
-    print("="*70 + "\n")
+    for entry in comparisons:
+        # handle both {summary: ...} and flat dict formats
+        s = entry.get("summary", entry)
+        label    = s.get("label", s.get("phase", "unknown"))
+        model    = s.get("model", "—")[:30]
+        accuracy = s.get("accuracy", s.get("success_rate", 0))
+        reward   = s.get("mean_reward", 0) or 0
+        steps    = s.get("mean_steps", 0) or 0
+        print(f"{label:<15} {model:<30} "
+              f"{accuracy:>8.1%} {reward:>8.3f} {steps:>7.1f}")
+    print("="*70 + "\\n")
 
 
 def main():
@@ -124,27 +170,21 @@ def main():
             json.dump(r, f, indent=2)
         comparisons.append(r)
 
-    # ── SFT model ──────────────────────────────────────────────────────
-    sft_ckpt = Path(cfg.get("sft_checkpoint", "checkpoints/sft"))
-    if sft_ckpt.exists():
-        r = eval_model(str(sft_ckpt), tasks, cfg, args.mock, label="sft")
-        with open(results_dir / "sft.json", "w") as f:
-            json.dump(r, f, indent=2)
-        comparisons.append(r)
-    else:
-        logger.warning("SFT checkpoint not found: %s — skipping", sft_ckpt)
+    # Helper to eval a checkpoint if it exists
+    def try_eval(ckpt_key: str, default: str, label: str, out_file: str):
+        ckpt = Path(cfg.get(ckpt_key, default))
+        if ckpt.exists():
+            r = eval_model(str(ckpt), tasks, cfg, args.mock, label=label)
+            with open(results_dir / out_file, "w") as f:
+                json.dump(r, f, indent=2)
+            comparisons.append(r)
+        else:
+            logger.warning("Checkpoint not found: %s — skipping", ckpt)
 
-    # ── RL model ───────────────────────────────────────────────────────
-    rl_ckpt = Path(cfg.get("rl_checkpoint", "checkpoints/rl/final"))
-    if not rl_ckpt.exists():
-        rl_ckpt = Path("checkpoints/rl/final")
-    if rl_ckpt.exists():
-        r = eval_model(str(rl_ckpt), tasks, cfg, args.mock, label="rl_grpo")
-        with open(results_dir / "rl.json", "w") as f:
-            json.dump(r, f, indent=2)
-        comparisons.append(r)
-    else:
-        logger.warning("RL checkpoint not found: %s — skipping", rl_ckpt)
+    try_eval("sft_checkpoint",      "checkpoints/sft",           "lora_sft",   "sft_lora.json")
+    try_eval("sft_full_checkpoint",  "checkpoints/sft_full",      "full_sft",   "sft_full.json")
+    try_eval("rl_checkpoint",        "checkpoints/rl/final",      "lora_grpo",  "rl_lora.json")
+    try_eval("rl_full_checkpoint",   "checkpoints/rl_full/final", "full_grpo",  "rl_full.json")
 
     # ── Print comparison table ─────────────────────────────────────────
     print_table(comparisons)
@@ -152,9 +192,11 @@ def main():
     # ── Log to W&B ─────────────────────────────────────────────────────
     for c in comparisons:
         s = c["summary"]
-        wandb.log({f"{s['label']}/success_rate": s["success_rate"],
-                   f"{s['label']}/mean_reward":  s["mean_reward"],
-                   f"{s['label']}/mean_steps":   s["mean_steps"]})
+        s = entry.get("summary", entry)
+        label = s.get("label", s.get("phase", "unknown"))
+        wandb.log({f"{label}/accuracy":   s.get("accuracy", s.get("success_rate", 0)),
+                   f"{label}/mean_reward": s.get("mean_reward", 0),
+                   f"{label}/mean_steps":  s.get("mean_steps", 0)})
 
     # Save full comparison
     with open(results_dir / "comparison.json", "w") as f:
